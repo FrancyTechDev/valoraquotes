@@ -10,7 +10,7 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const recognitionRef = useRef<any>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const transcriptRef = useRef("");
 
   const supported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
@@ -24,8 +24,8 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
 
   const startRecording = useCallback(() => {
     if (!supported) return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = "en-US";
