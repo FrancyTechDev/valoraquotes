@@ -111,26 +111,27 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
 
   if (!supported) {
     return (
-      <p className="text-sm text-muted-foreground text-center">
-        Speech recognition is not supported in this browser. Please use Chrome or Edge.
+      <p className="text-muted-foreground text-center">
+        Il riconoscimento vocale non è supportato in questo browser. Usa Chrome o Edge.
       </p>
     );
   }
 
+  const progress = seconds / 90;
+
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-6">
       {/* Language selector */}
-      <div className="flex items-center gap-1.5">
-        <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+      <div className="flex items-center gap-1.5 bg-muted rounded-full p-1">
         {LANGUAGES.map((l) => (
           <button
             key={l.code}
             onClick={() => setLang(l.code)}
             disabled={isRecording}
-            className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
               lang === l.code
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-accent"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             } disabled:opacity-50`}
           >
             {l.label}
@@ -138,31 +139,49 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
         ))}
       </div>
 
-      <button
-        onClick={isRecording ? stopRecording : startRecording}
-        disabled={disabled}
-        className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-          isRecording
-            ? "bg-destructive text-destructive-foreground animate-pulse shadow-lg shadow-destructive/30"
-            : "bg-primary text-primary-foreground hover:scale-105 shadow-md shadow-primary/20"
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
-      >
-        {isRecording ? <Square className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
-      </button>
+      {/* Record button with circular progress */}
+      <div className="relative">
+        {isRecording && (
+          <svg className="absolute inset-0 w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+            <circle cx="48" cy="48" r="44" fill="none" stroke="var(--color-border)" strokeWidth="3" />
+            <circle
+              cx="48" cy="48" r="44" fill="none"
+              stroke="var(--color-destructive)"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 44}`}
+              strokeDashoffset={`${2 * Math.PI * 44 * (1 - progress)}`}
+              className="transition-all duration-1000"
+            />
+          </svg>
+        )}
+        <button
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={disabled}
+          className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 relative z-10 ${
+            isRecording
+              ? "bg-destructive/10 text-destructive"
+              : "bg-foreground text-background hover:scale-105 shadow-lg shadow-foreground/10"
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {isRecording ? <Square className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
+        </button>
+      </div>
 
-      <p className="text-sm text-muted-foreground">
-        {isRecording ? `Registrazione... ${seconds}s / 90s` : "Tocca per registrare"}
-      </p>
-
-      {/* Live interim transcription */}
-      {isRecording && interim && (
-        <p className="text-xs text-muted-foreground/70 italic max-w-xs text-center animate-pulse">
-          {interim}
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-sm text-muted-foreground">
+          {isRecording ? `${seconds}s / 90s` : "Tocca per registrare"}
         </p>
-      )}
+
+        {isRecording && interim && (
+          <p className="text-sm text-muted-foreground/70 italic max-w-sm text-center leading-relaxed">
+            {interim}
+          </p>
+        )}
+      </div>
 
       {errorMsg && (
-        <p className="text-sm text-destructive text-center max-w-xs">{errorMsg}</p>
+        <p className="text-sm text-destructive text-center max-w-sm">{errorMsg}</p>
       )}
     </div>
   );
