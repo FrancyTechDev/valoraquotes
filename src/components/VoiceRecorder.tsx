@@ -1,13 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Mic, Square } from "lucide-react";
 
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
-
 interface VoiceRecorderProps {
   onTranscription: (text: string) => void;
   disabled?: boolean;
@@ -16,7 +9,7 @@ interface VoiceRecorderProps {
 export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const transcriptRef = useRef("");
 
