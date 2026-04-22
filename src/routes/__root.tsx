@@ -29,14 +29,18 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "VALORA — Preventivi Vocali Intelligenti" },
-      { name: "description", content: "Genera preventivi professionali dalla tua voce in pochi secondi." },
-      { name: "author", content: "VALORA" },
-      { property: "og:title", content: "VALORA — Preventivi Vocali Intelligenti" },
-      { property: "og:description", content: "Genera preventivi professionali dalla tua voce in pochi secondi." },
+      { title: "Valora Quotes" },
+      { name: "description", content: "Quick Quote AI generates professional quotes from voice input, offering a fast and cost-effective solution." },
+      { name: "author", content: "Lovable" },
+      { property: "og:title", content: "Valora Quotes" },
+      { property: "og:description", content: "Quick Quote AI generates professional quotes from voice input, offering a fast and cost-effective solution." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Valora Quotes" },
+      { name: "twitter:description", content: "Quick Quote AI generates professional quotes from voice input, offering a fast and cost-effective solution." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/741111fe-de2c-4e78-b37a-31957cbfef49/id-preview-7cab813b--f6ed1a4d-e0ec-40ef-bd1b-7461750b46b9.lovable.app-1776869367238.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/741111fe-de2c-4e78-b37a-31957cbfef49/id-preview-7cab813b--f6ed1a4d-e0ec-40ef-bd1b-7461750b46b9.lovable.app-1776869367238.png" },
     ],
     links: [
       {
