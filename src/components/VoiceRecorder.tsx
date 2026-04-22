@@ -1,6 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, Square, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Mic, Square } from "lucide-react";
+
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
 
 interface VoiceRecorderProps {
   onTranscription: (text: string) => void;
