@@ -83,10 +83,10 @@ function Index() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header — large, clean, desktop-first */}
-      <header className="border-b border-border/60 px-6 py-5 print:hidden backdrop-blur-sm bg-background/80 sticky top-0 z-50">
+      <header className="border-b border-border/60 px-6 py-7 md:py-8 print:hidden backdrop-blur-sm bg-background/80 sticky top-0 z-50">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={valoraLogo} alt="Valora" className="h-8 w-auto" />
+          <div className="flex items-center gap-4">
+            <img src={valoraLogo} alt="Valora" className="h-11 md:h-14 w-auto" />
           </div>
           {step !== "blocked" && (
             <div className="flex items-center gap-2">
