@@ -20,20 +20,28 @@ export const generateQuote = createServerFn({ method: "POST" })
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "system",
-            content: `You are a professional quote generator. Given a voice transcription describing a service request, generate a structured quote. Return ONLY valid JSON with this exact structure:
-{
-  "title": "Quote title",
-  "description": "Brief description of the work",
-  "items": [
-    { "name": "Service item name", "price": 100 }
-  ],
-  "total": 300
-}
-Keep it concise. 3-6 items. Prices in USD. Total must equal sum of item prices.`,
+            content: `Sei un architetto professionista italiano con esperienza in ristrutturazioni e nuove costruzioni. Data una descrizione vocale di un progetto, genera un preventivo professionale dettagliato che un architetto invierebbe direttamente al cliente.
+
+REGOLE FONDAMENTALI:
+1. STRUTTURA: Organizza il preventivo in sezioni professionali con sottototali per ogni sezione.
+2. DETTAGLIO VOCI: Ogni voce deve avere una breve descrizione realistica (1 riga) di cosa include. Non solo "Bagno — €15.000" ma "Rifacimento completo bagno (impianti, sanitari, rivestimenti ceramici) — €10.850".
+3. PREZZI REALISTICI: MAI usare cifre tonde come 5.000, 10.000, 7.000. Usa cifre credibili: 4.800, 10.200, 7.350, 2.180. I prezzi devono essere coerenti con il mercato italiano.
+4. INCERTEZZA: Se il cliente menziona incertezza o fasce di prezzo, aggiungi note su possibili variazioni e upgrade disponibili.
+5. TONO PROFESSIONALE: Linguaggio chiaro, strutturato, credibile. Niente tono generico da AI.
+
+SEZIONI OBBLIGATORIE (usa solo quelle pertinenti al progetto):
+- Opere edili (demolizioni, murature, massetti)
+- Impianti (elettrico, idraulico, riscaldamento)
+- Finiture interne (pavimenti, rivestimenti, pitture)
+- Serramenti (finestre, porte, oscuranti)
+- Arredo fisso (cucina, armadi a muro) — se pertinente
+- Servizi professionali (progettazione, direzione lavori, pratiche)
+
+Return ONLY valid JSON with the exact structure specified in the tool schema.`,
           },
           {
             role: "user",
@@ -45,27 +53,76 @@ Keep it concise. 3-6 items. Prices in USD. Total must equal sum of item prices.`
             type: "function" as const,
             function: {
               name: "generate_quote",
-              description: "Generate a structured service quote",
+              description: "Generate a structured professional architectural quote",
               parameters: {
                 type: "object",
                 properties: {
-                  title: { type: "string" },
-                  description: { type: "string" },
-                  items: {
+                  title: {
+                    type: "string",
+                    description: "Titolo del progetto (es. 'Ristrutturazione Appartamento 85mq — Milano, Zona Navigli')",
+                  },
+                  description: {
+                    type: "string",
+                    description: "Breve descrizione del progetto (2-3 righe max)",
+                  },
+                  duration: {
+                    type: "string",
+                    description: "Durata stimata dei lavori (es. '8-10 settimane')",
+                  },
+                  finishLevel: {
+                    type: "string",
+                    description: "Livello finiture (es. 'Fascia media con possibilità di upgrade')",
+                  },
+                  sections: {
                     type: "array",
+                    description: "Sezioni del preventivo con voci dettagliate",
                     items: {
                       type: "object",
                       properties: {
-                        name: { type: "string" },
-                        price: { type: "number" },
+                        name: {
+                          type: "string",
+                          description: "Nome della sezione (es. 'Opere edili')",
+                        },
+                        items: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              name: {
+                                type: "string",
+                                description: "Nome della voce con descrizione breve inclusa (es. 'Demolizione pavimenti esistenti e massetto (80mq circa)')",
+                              },
+                              price: {
+                                type: "number",
+                                description: "Prezzo in EUR — MAI cifre tonde, usa valori realistici (es. 4.800, 10.250)",
+                              },
+                            },
+                            required: ["name", "price"],
+                            additionalProperties: false,
+                          },
+                        },
+                        subtotal: {
+                          type: "number",
+                          description: "Sottototale della sezione",
+                        },
                       },
-                      required: ["name", "price"],
+                      required: ["name", "items", "subtotal"],
                       additionalProperties: false,
                     },
                   },
-                  total: { type: "number" },
+                  total: {
+                    type: "number",
+                    description: "Totale generale del preventivo",
+                  },
+                  notes: {
+                    type: "array",
+                    description: "Note professionali (disclaimer variabilità, lavori aggiuntivi possibili, dipendenza da scelte materiali)",
+                    items: {
+                      type: "string",
+                    },
+                  },
                 },
-                required: ["title", "description", "items", "total"],
+                required: ["title", "description", "duration", "finishLevel", "sections", "total", "notes"],
                 additionalProperties: false,
               },
             },
