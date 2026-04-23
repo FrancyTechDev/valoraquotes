@@ -5,6 +5,7 @@ import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { QuoteDisplay, type QuoteData } from "@/components/QuoteDisplay";
 import { generateQuote } from "@/server/generate-quote.functions";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import valoraLogo from "@/assets/valora-logo.png";
 
 export const Route = createFileRoute("/")({
@@ -82,29 +83,32 @@ function Index() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header — large, clean, desktop-first */}
-      <header className="border-b border-border/60 px-6 py-7 md:py-8 print:hidden backdrop-blur-sm bg-background/80 sticky top-0 z-50">
+      {/* Header */}
+      <header className="border-b border-border/60 px-6 py-5 md:py-6 print:hidden backdrop-blur-sm bg-background/80 sticky top-0 z-50">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <img src={valoraLogo} alt="Valora" className="h-11 md:h-14 w-auto" />
+            <img src={valoraLogo} alt="Valora" className="h-14 md:h-18 w-auto" />
           </div>
-          {step !== "blocked" && (
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                {Array.from({ length: MAX_TRIALS }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-2 h-2 rounded-full transition-colors ${
-                      i < remaining ? "bg-valora-green" : "bg-border"
-                    }`}
-                  />
-                ))}
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            {step !== "blocked" && (
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {Array.from({ length: MAX_TRIALS }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        i < remaining ? "bg-valora-green" : "bg-border"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-muted-foreground ml-1">
+                  {remaining}/{MAX_TRIALS}
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground ml-1">
-                {remaining} {remaining === 1 ? "preventivo" : "preventivi"} rimanenti
-              </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 

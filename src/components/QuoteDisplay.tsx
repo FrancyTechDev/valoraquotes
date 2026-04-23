@@ -1,4 +1,4 @@
-import { Copy, Printer, Check } from "lucide-react";
+import { Copy, Printer, Check, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -31,26 +31,35 @@ function formatPrice(price: number): string {
   return price.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getSectionNumber(index: number): string {
+  return String(index + 1).padStart(2, "0");
+}
+
 export function QuoteDisplay({ quote }: QuoteDisplayProps) {
   const [copied, setCopied] = useState(false);
 
   const quoteText = [
-    quote.title,
+    quote.title.toUpperCase(),
+    "",
     quote.description,
     "",
     `Durata stimata: ${quote.duration}`,
     `Livello finiture: ${quote.finishLevel}`,
     "",
-    ...quote.sections.flatMap((s) => [
-      `— ${s.name} —`,
-      ...s.items.map((i) => `  • ${i.name} — €${formatPrice(i.price)}`),
-      `  Subtotale: €${formatPrice(s.subtotal)}`,
+    "═".repeat(50),
+    "",
+    ...quote.sections.flatMap((s, i) => [
+      `${getSectionNumber(i)}. ${s.name.toUpperCase()}`,
+      ...s.items.map((item) => `    ${item.name}  €${formatPrice(item.price)}`),
+      `    ─── Subtotale: €${formatPrice(s.subtotal)}`,
       "",
     ]),
-    `TOTALE: €${formatPrice(quote.total)}`,
+    "═".repeat(50),
+    `TOTALE PREVENTIVO: €${formatPrice(quote.total)}`,
+    "═".repeat(50),
     "",
-    "Note:",
-    ...quote.notes.map((n) => `• ${n}`),
+    "NOTE:",
+    ...quote.notes.map((n, i) => `${i + 1}. ${n}`),
   ].join("\n");
 
   const handleCopy = async () => {
@@ -63,76 +72,129 @@ export function QuoteDisplay({ quote }: QuoteDisplayProps) {
 
   return (
     <div className="space-y-4">
-      <div id="quote-printable" className="bg-card border border-border rounded-2xl p-8 md:p-10 space-y-8">
-        {/* Header */}
-        <div className="space-y-1.5 border-b border-border/50 pb-6">
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-card-foreground">{quote.title}</h2>
-          <p className="text-muted-foreground leading-relaxed">{quote.description}</p>
-        </div>
-
-        {/* Meta */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Durata stimata</span>
-            <p className="text-sm font-medium text-card-foreground">{quote.duration}</p>
-          </div>
-          <div className="space-y-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Livello finiture</span>
-            <p className="text-sm font-medium text-card-foreground">{quote.finishLevel}</p>
-          </div>
-        </div>
-
-        {/* Sections */}
-        <div className="space-y-6">
-          {quote.sections.map((section, si) => (
-            <div key={si} className="space-y-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-valora-green">{section.name}</h3>
-              <div className="space-y-0">
-                {section.items.map((item, ii) => (
-                  <div key={ii} className="flex justify-between items-start py-2.5 border-b border-border/30 last:border-0 gap-4">
-                    <span className="text-sm text-card-foreground leading-snug flex-1">{item.name}</span>
-                    <span className="text-sm font-medium text-card-foreground tabular-nums whitespace-nowrap">€{formatPrice(item.price)}</span>
-                  </div>
-                ))}
+      <div id="quote-printable" className="bg-card border border-border rounded-2xl overflow-hidden">
+        {/* Document header band */}
+        <div className="bg-valora-navy px-8 py-6 md:px-10 md:py-8">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center gap-2.5 mb-3">
+                <FileText className="w-4 h-4 text-valora-green opacity-80" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-foreground/50">
+                  Preventivo di massima
+                </span>
               </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Subtotale</span>
-                <span className="text-sm font-semibold text-card-foreground tabular-nums">€{formatPrice(section.subtotal)}</span>
-              </div>
+              <h2 className="text-lg md:text-xl font-bold tracking-tight text-primary-foreground leading-snug">
+                {quote.title}
+              </h2>
+              <p className="text-sm text-primary-foreground/60 leading-relaxed mt-1">
+                {quote.description}
+              </p>
             </div>
-          ))}
-        </div>
-
-        {/* Total */}
-        <div className="border-t-2 border-valora-green/30 pt-4 flex justify-between items-center">
-          <span className="text-lg font-bold text-card-foreground">Totale Preventivo</span>
-          <span className="text-xl font-bold text-valora-green tabular-nums">€{formatPrice(quote.total)}</span>
-        </div>
-
-        {/* Notes */}
-        {quote.notes && quote.notes.length > 0 && (
-          <div className="bg-muted/50 rounded-xl p-5 space-y-2">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Note</h4>
-            <ul className="space-y-1.5">
-              {quote.notes.map((note, i) => (
-                <li key={i} className="text-xs text-muted-foreground leading-relaxed flex gap-2">
-                  <span className="text-muted-foreground/60 shrink-0">•</span>
-                  <span>{note}</span>
-                </li>
-              ))}
-            </ul>
           </div>
-        )}
+        </div>
+
+        <div className="px-8 py-8 md:px-10 md:py-10 space-y-8">
+          {/* Meta info */}
+          <div className="grid grid-cols-2 gap-6 pb-6 border-b border-border/50">
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/70">
+                Durata stimata
+              </span>
+              <p className="text-sm font-medium text-card-foreground">{quote.duration}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/70">
+                Livello finiture
+              </span>
+              <p className="text-sm font-medium text-card-foreground">{quote.finishLevel}</p>
+            </div>
+          </div>
+
+          {/* Sections */}
+          <div className="space-y-8">
+            {quote.sections.map((section, si) => (
+              <div key={si} className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-valora-green tabular-nums">
+                    {getSectionNumber(si)}
+                  </span>
+                  <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-card-foreground">
+                    {section.name}
+                  </h3>
+                  <div className="flex-1 border-b border-border/40" />
+                </div>
+
+                <div className="ml-7">
+                  {section.items.map((item, ii) => (
+                    <div
+                      key={ii}
+                      className="flex justify-between items-start py-2.5 border-b border-border/20 last:border-0 gap-6"
+                    >
+                      <span className="text-[13px] text-card-foreground/85 leading-snug flex-1">
+                        {item.name}
+                      </span>
+                      <span className="text-[13px] font-medium text-card-foreground tabular-nums whitespace-nowrap">
+                        € {formatPrice(item.price)}
+                      </span>
+                    </div>
+                  ))}
+
+                  <div className="flex justify-between items-center pt-3 mt-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">
+                      Subtotale sezione
+                    </span>
+                    <span className="text-sm font-semibold text-card-foreground tabular-nums">
+                      € {formatPrice(section.subtotal)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Total */}
+          <div className="border-t-2 border-valora-green/40 pt-5">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-lg font-bold text-card-foreground tracking-tight">
+                  Totale Preventivo
+                </span>
+                <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
+                  IVA esclusa ove applicabile
+                </p>
+              </div>
+              <span className="text-2xl font-bold text-valora-green tabular-nums">
+                € {formatPrice(quote.total)}
+              </span>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {quote.notes && quote.notes.length > 0 && (
+            <div className="bg-muted/40 rounded-xl p-6 space-y-3 mt-2">
+              <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+                Note e condizioni
+              </h4>
+              <ol className="space-y-2 list-decimal list-inside">
+                {quote.notes.map((note, i) => (
+                  <li key={i} className="text-xs text-muted-foreground leading-relaxed">
+                    {note}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-3 print:hidden">
         <Button variant="outline" onClick={handleCopy} className="flex-1 h-11 rounded-xl">
           {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-          {copied ? "Copiato" : "Copia"}
+          {copied ? "Copiato" : "Copia testo"}
         </Button>
         <Button variant="outline" onClick={handlePrint} className="flex-1 h-11 rounded-xl">
           <Printer className="w-4 h-4 mr-2" />
-          Scarica PDF
+          Stampa / PDF
         </Button>
       </div>
     </div>
