@@ -86,7 +86,7 @@ function LandingPage() {
       <ScrollNav />
 
       {/* Hero */}
-      <section className="pt-32 md:pt-44 pb-20 md:pb-32 px-6">
+      <section className="pt-36 md:pt-48 pb-20 md:pb-32 px-6">
         <motion.div style={{ y: heroY, opacity: heroOpacity }} className="max-w-3xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
