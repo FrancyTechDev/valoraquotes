@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, FolderOpen, Pencil, Check } from "lucide-react";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { QuoteDisplay, type QuoteData } from "@/components/QuoteDisplay";
+import { QuoteEditor } from "@/components/QuoteEditor";
 import { generateQuote } from "@/server/generate-quote.functions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { saveQuote } from "@/lib/quote-storage";
 import valoraLogo from "@/assets/valora-logo.png";
 
 export const Route = createFileRoute("/app")({
@@ -35,7 +37,7 @@ function incrementTrial() {
   return count;
 }
 
-type Step = "record" | "edit" | "generating" | "result" | "blocked";
+type Step = "record" | "edit" | "generating" | "result" | "editing" | "blocked";
 
 function AppPage() {
   const [step, setStep] = useState<Step>(() =>
@@ -44,6 +46,7 @@ function AppPage() {
   const [transcription, setTranscription] = useState("");
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
 
   const handleTranscription = (text: string) => {
     setTranscription(text);
@@ -67,6 +70,7 @@ function AppPage() {
       if ("quote" in result && result.quote) {
         setQuote(result.quote as QuoteData);
         incrementTrial();
+        setSaved(false);
         setStep("result");
       }
     } catch {
@@ -82,8 +86,15 @@ function AppPage() {
       setTranscription("");
       setQuote(null);
       setError("");
+      setSaved(false);
       setStep("record");
     }
+  };
+
+  const handleSave = () => {
+    if (!quote) return;
+    saveQuote(quote);
+    setSaved(true);
   };
 
   const remaining = MAX_TRIALS - getTrialCount();
@@ -99,7 +110,13 @@ function AppPage() {
               <img src={valoraLogo} alt="Valora" className="h-11 md:h-14 w-auto" />
             </Link>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Link to="/saved">
+              <Button variant="ghost" size="sm" className="rounded-lg gap-2">
+                <FolderOpen className="w-4 h-4" />
+                <span className="hidden sm:inline">Salvati</span>
+              </Button>
+            </Link>
             <ThemeToggle />
             {step !== "blocked" && (
               <div className="flex items-center gap-2">
@@ -188,16 +205,53 @@ function AppPage() {
           )}
 
           {step === "result" && quote && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <QuoteDisplay quote={quote} />
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                className="w-full h-12 rounded-xl text-base print:hidden"
-              >
-                Nuovo Preventivo
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3 print:hidden">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("editing")}
+                  className="flex-1 h-12 rounded-xl text-base"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Modifica
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saved}
+                  className="flex-1 h-12 rounded-xl text-base"
+                >
+                  {saved ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Salvato
+                    </>
+                  ) : (
+                    "Salva preventivo"
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={handleReset}
+                  className="flex-1 h-12 rounded-xl text-base"
+                >
+                  Nuovo
+                </Button>
+              </div>
             </div>
+          )}
+
+          {step === "editing" && quote && (
+            <QuoteEditor
+              quote={quote}
+              onCancel={() => setStep("result")}
+              onSave={(updated) => {
+                setQuote(updated);
+                setSaved(false);
+                setStep("result");
+              }}
+              saveLabel="Conferma modifiche"
+            />
           )}
 
           {step === "blocked" && (
@@ -218,6 +272,12 @@ function AppPage() {
                   l'upgrade per continuare.
                 </p>
               </div>
+              <Link to="/saved">
+                <Button variant="outline" className="rounded-xl">
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  Vedi preventivi salvati
+                </Button>
+              </Link>
             </div>
           )}
         </div>
