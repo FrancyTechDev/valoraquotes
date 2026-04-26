@@ -24,51 +24,52 @@ const easeOut = [0.22, 1, 0.36, 1] as const;
 function ScrollNav() {
   const { scrollY } = useScroll();
   const reduce = useReducedMotion();
-  const bgOpacity = useTransform(scrollY, [0, 80], [0.5, 0.85]);
-  const blur = useTransform(scrollY, [0, 80], reduce ? ["0px", "0px"] : ["8px", "20px"]);
-  const borderOpacity = useTransform(scrollY, [0, 80], [0, 0.6]);
+  const bgOpacity = useTransform(scrollY, [0, 80], [0.6, 0.9]);
+  const borderOpacity = useTransform(scrollY, [0, 80], [0, 1]);
+  const blurPx = useTransform(scrollY, [0, 80], reduce ? [8, 8] : [10, 20]);
+  const blur = useTransform(blurPx, (v) => `blur(${v}px) saturate(180%)`);
   const height = useTransform(scrollY, [0, 80], [88, 64]);
-  const logoScale = useTransform(scrollY, [0, 80], [1, 0.88]);
+  const logoScale = useTransform(scrollY, [0, 80], [1, 0.9]);
+  const shadowOpacity = useTransform(scrollY, [0, 80], [0, 0.06]);
+  const shadow = useTransform(shadowOpacity, (o) => `0 1px 0 0 rgb(0 0 0 / ${o}), 0 8px 24px -16px rgb(0 0 0 / ${o * 2})`);
 
   return (
     <motion.nav
       style={{
-        backdropFilter: blur as unknown as string,
-        WebkitBackdropFilter: blur as unknown as string,
+        backdropFilter: blur,
+        WebkitBackdropFilter: blur,
+        boxShadow: shadow,
       }}
       className="fixed top-0 inset-x-0 z-50"
     >
+      {/* Background layer with animated opacity */}
       <motion.div
-        style={{
-          backgroundColor: useTransform(
-            bgOpacity,
-            (o) => `hsl(var(--background) / ${o})`,
-          ) as unknown as string,
-          borderBottomColor: useTransform(
-            borderOpacity,
-            (o) => `hsl(var(--border) / ${o})`,
-          ) as unknown as string,
-          borderBottomWidth: 1,
-          borderBottomStyle: "solid",
-        }}
+        aria-hidden
+        style={{ opacity: bgOpacity }}
+        className="absolute inset-0 bg-background pointer-events-none"
+      />
+      {/* Border layer with animated opacity */}
+      <motion.div
+        aria-hidden
+        style={{ opacity: borderOpacity }}
+        className="absolute inset-x-0 bottom-0 h-px bg-border pointer-events-none"
+      />
+      <motion.div
+        style={{ height }}
+        className="relative max-w-6xl mx-auto flex items-center justify-between px-6"
       >
-        <motion.div
-          style={{ height }}
-          className="max-w-6xl mx-auto flex items-center justify-between px-6"
-        >
-          <motion.div style={{ scale: logoScale }} className="flex items-center gap-3 origin-left">
-            <img src={valoraLogo} alt="Valora" className="h-9 md:h-11 w-auto" />
-          </motion.div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <Link
-              to="/app"
-              className="group inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all duration-300 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
-            >
-              Prova Valora
-            </Link>
-          </div>
+        <motion.div style={{ scale: logoScale }} className="flex items-center gap-3 origin-left">
+          <img src={valoraLogo} alt="Valora" className="h-10 md:h-12 w-auto" />
         </motion.div>
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+          <Link
+            to="/app"
+            className="group inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all duration-300 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+          >
+            Prova Valora
+          </Link>
+        </div>
       </motion.div>
     </motion.nav>
   );
