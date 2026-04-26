@@ -28,8 +28,8 @@ function ScrollNav() {
   const borderOpacity = useTransform(scrollY, [0, 80], [0, 1]);
   const blurPx = useTransform(scrollY, [0, 80], reduce ? [8, 8] : [10, 20]);
   const blur = useTransform(blurPx, (v) => `blur(${v}px) saturate(180%)`);
-  const height = useTransform(scrollY, [0, 80], [88, 64]);
-  const logoScale = useTransform(scrollY, [0, 80], [1, 0.9]);
+  const height = useTransform(scrollY, [0, 80], [104, 76]);
+  const logoScale = useTransform(scrollY, [0, 80], [1, 0.92]);
   const shadowOpacity = useTransform(scrollY, [0, 80], [0, 0.06]);
   const shadow = useTransform(shadowOpacity, (o) => `0 1px 0 0 rgb(0 0 0 / ${o}), 0 8px 24px -16px rgb(0 0 0 / ${o * 2})`);
 
@@ -59,7 +59,7 @@ function ScrollNav() {
         className="relative max-w-6xl mx-auto flex items-center justify-between px-6"
       >
         <motion.div style={{ scale: logoScale }} className="flex items-center gap-3 origin-left">
-          <img src={valoraLogo} alt="Valora" className="h-10 md:h-12 w-auto" />
+          <img src={valoraLogo} alt="Valora" className="h-12 md:h-14 w-auto" />
         </motion.div>
         <div className="flex items-center gap-4">
           <ThemeToggle />

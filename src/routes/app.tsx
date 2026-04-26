@@ -91,12 +91,12 @@ function AppPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border/50 px-6 py-4 md:py-5 print:hidden bg-background/80 backdrop-blur-xl sticky top-0 z-50">
+      <header className="border-b border-border/50 px-6 py-5 md:py-6 print:hidden bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <ArrowLeft className="w-4 h-4 text-muted-foreground" />
-              <img src={valoraLogo} alt="Valora" className="h-8 md:h-10 w-auto" />
+              <img src={valoraLogo} alt="Valora" className="h-11 md:h-14 w-auto" />
             </Link>
           </div>
           <div className="flex items-center gap-4">
