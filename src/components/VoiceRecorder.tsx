@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, Square, Globe } from "lucide-react";
+import { Mic, Square } from "lucide-react";
 
 const LANGUAGES = [
   { code: "it-IT", label: "IT" },
@@ -8,6 +8,8 @@ const LANGUAGES = [
   { code: "fr-FR", label: "FR" },
   { code: "de-DE", label: "DE" },
 ] as const;
+
+const MAX_SECONDS = 180;
 
 function detectDefaultLang(): string {
   if (typeof navigator === "undefined") return "en-US";
@@ -26,87 +28,168 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
   const [seconds, setSeconds] = useState(0);
   const [lang, setLang] = useState(detectDefaultLang);
   const [interim, setInterim] = useState("");
+  const [liveFinal, setLiveFinal] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  const transcriptRef = useRef("");
+  // Accumulated final transcript across auto-restarts
+  const finalTranscriptRef = useRef("");
+  // Final text already emitted by the current recognition session
+  const sessionFinalRef = useRef("");
+  // Whether we want recording to keep going (true until user stops or limit hit)
+  const shouldContinueRef = useRef(false);
+  const langRef = useRef(lang);
+  langRef.current = lang;
 
   const supported =
     typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
+  const cleanupTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = undefined;
+    }
+  };
+
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      recognitionRef.current?.abort();
+      shouldContinueRef.current = false;
+      cleanupTimer();
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        /* noop */
+      }
     };
   }, []);
 
-  const startRecording = useCallback(() => {
-    if (!supported) return;
-    setErrorMsg("");
+  const createRecognition = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = lang;
-
-    transcriptRef.current = "";
+    recognition.lang = langRef.current;
+    sessionFinalRef.current = "";
 
     recognition.onresult = (event: any) => {
-      let finalText = "";
+      let sessionFinal = "";
       let interimText = "";
       for (let i = 0; i < event.results.length; i++) {
         const result = event.results[i];
+        const text = result[0].transcript;
         if (result.isFinal) {
-          finalText += result[0].transcript + " ";
+          sessionFinal += text + " ";
         } else {
-          interimText += result[0].transcript;
+          interimText += text;
         }
       }
-      transcriptRef.current = finalText.trim();
+      sessionFinalRef.current = sessionFinal;
+      const combined = (finalTranscriptRef.current + " " + sessionFinal).trim();
+      setLiveFinal(combined);
       setInterim(interimText);
     };
 
     recognition.onerror = (e: any) => {
-      const msg =
-        e.error === "not-allowed"
-          ? "Microfono non autorizzato. Controlla i permessi del browser."
-          : e.error === "no-speech"
-            ? "Nessun audio rilevato. Riprova parlando più forte."
-            : `Errore: ${e.error}`;
-      setErrorMsg(msg);
-      stopRecording();
+      // "no-speech" / "aborted" are recoverable while we're still recording
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        setErrorMsg("Microfono non autorizzato. Controlla i permessi del browser.");
+        shouldContinueRef.current = false;
+        return;
+      }
+      if (e.error === "network") {
+        setErrorMsg("Problema di rete con il riconoscimento vocale. Riprovo...");
+        return;
+      }
+      // Generic fallback — keep going if user hasn't stopped
+      setErrorMsg(`Errore: ${e.error}. Riprovo...`);
     };
 
     recognition.onend = () => {
-      if (transcriptRef.current) {
-        onTranscription(transcriptRef.current);
+      // Persist whatever this session finalized
+      if (sessionFinalRef.current) {
+        finalTranscriptRef.current = (finalTranscriptRef.current + " " + sessionFinalRef.current).trim();
+        sessionFinalRef.current = "";
       }
-      setIsRecording(false);
-      setSeconds(0);
-      setInterim("");
-      if (timerRef.current) clearInterval(timerRef.current);
+
+      if (shouldContinueRef.current) {
+        // Browser auto-stopped (Chrome ~60s timeout). Restart silently.
+        try {
+          const next = createRecognition();
+          recognitionRef.current = next;
+          next.start();
+        } catch {
+          // If restart fails (rare), stop gracefully
+          shouldContinueRef.current = false;
+          finishRecording();
+        }
+      } else {
+        finishRecording();
+      }
     };
 
-    recognition.start();
-    recognitionRef.current = recognition;
+    return recognition;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const finishRecording = useCallback(() => {
+    cleanupTimer();
+    const finalText = finalTranscriptRef.current.trim();
+    setIsRecording(false);
+    setInterim("");
+    setSeconds(0);
+    if (finalText) {
+      onTranscription(finalText);
+    }
+  }, [onTranscription]);
+
+  const startRecording = useCallback(() => {
+    if (!supported) return;
+    setErrorMsg("");
+    setLiveFinal("");
+    setInterim("");
+    finalTranscriptRef.current = "";
+    sessionFinalRef.current = "";
+    shouldContinueRef.current = true;
+
+    try {
+      const recognition = createRecognition();
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      setErrorMsg("Impossibile avviare la registrazione. Riprova.");
+      shouldContinueRef.current = false;
+      return;
+    }
+
     setIsRecording(true);
     setSeconds(0);
     timerRef.current = setInterval(() => {
       setSeconds((s) => {
-        if (s >= 89) {
-          recognition.stop();
-          return s;
+        const next = s + 1;
+        if (next >= MAX_SECONDS) {
+          shouldContinueRef.current = false;
+          try {
+            recognitionRef.current?.stop();
+          } catch {
+            /* noop */
+          }
+          return MAX_SECONDS;
         }
-        return s + 1;
+        return next;
       });
     }, 1000);
-  }, [supported, onTranscription, lang]);
+  }, [supported, createRecognition]);
 
   const stopRecording = useCallback(() => {
-    recognitionRef.current?.stop();
-    if (timerRef.current) clearInterval(timerRef.current);
+    shouldContinueRef.current = false;
+    try {
+      recognitionRef.current?.stop();
+    } catch {
+      /* noop */
+    }
   }, []);
 
   if (!supported) {
@@ -117,7 +200,8 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
     );
   }
 
-  const progress = seconds / 90;
+  const progress = seconds / MAX_SECONDS;
+  const livePreview = (liveFinal + (interim ? " " + interim : "")).trim();
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -168,14 +252,14 @@ export function VoiceRecorder({ onTranscription, disabled }: VoiceRecorderProps)
         </button>
       </div>
 
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-2 w-full">
         <p className="text-sm text-muted-foreground">
-          {isRecording ? `${seconds}s / 90s` : "Tocca per registrare"}
+          {isRecording ? `${seconds}s / ${MAX_SECONDS}s` : "Tocca per registrare"}
         </p>
 
-        {isRecording && interim && (
-          <p className="text-sm text-muted-foreground/70 italic max-w-sm text-center leading-relaxed">
-            {interim}
+        {isRecording && livePreview && (
+          <p className="text-sm text-muted-foreground/80 italic max-w-md text-center leading-relaxed max-h-32 overflow-y-auto">
+            {livePreview}
           </p>
         )}
       </div>
