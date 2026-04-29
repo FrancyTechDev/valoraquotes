@@ -18,6 +18,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const stripe = new Stripe(secret);
     const { userId, claims } = context;
     const email = (claims.email as string | undefined) ?? undefined;
+    const origin = data.origin || "https://valoraquotes.lovable.app";
 
     // Reuse customer if exists
     const { data: profile } = await supabaseAdmin
@@ -37,14 +38,29 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         .from("profiles")
         .update({ stripe_customer_id: customerId })
         .eq("id", userId);
+    } else {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 10,
+      });
+      const activeSub = subscriptions.data.find(
+        (sub) => sub.status === "active" || sub.status === "trialing",
+      );
+      if (activeSub) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ subscription_status: "active", stripe_subscription_id: activeSub.id })
+          .eq("id", userId);
+        return { url: `${origin}/app`, error: null };
+      }
     }
 
-    const origin = data.origin || "https://valoraquotes.lovable.app";
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/app?upgraded=1`,
+      success_url: `${origin}/app?upgraded=1&checkout_session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/app?canceled=1`,
       client_reference_id: userId,
       metadata: { user_id: userId },
@@ -53,4 +69,89 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     });
 
     return { url: session.url, error: null };
+  });
+
+export const syncCheckoutSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { sessionId: string }) => ({
+    sessionId: String(input.sessionId || "").trim(),
+  }))
+  .handler(async ({ data, context }) => {
+    const secret = process.env.STRIPE_SECRET_KEY;
+    if (!secret || !data.sessionId) {
+      return { isSubscribed: false, error: "Checkout non configurato" };
+    }
+
+    const stripe = new Stripe(secret);
+    const session = await stripe.checkout.sessions.retrieve(data.sessionId, {
+      expand: ["subscription"],
+    });
+    const ownerId =
+      (session.metadata?.user_id as string | undefined) ||
+      (session.client_reference_id as string | undefined);
+
+    if (ownerId !== context.userId) {
+      return { isSubscribed: false, error: "Sessione checkout non valida" };
+    }
+
+    const subscription = session.subscription;
+    const subId = typeof subscription === "string" ? subscription : (subscription?.id ?? null);
+    const subStatus = typeof subscription === "string" ? null : (subscription?.status ?? null);
+    const isSubscribed =
+      session.status === "complete" &&
+      (session.payment_status === "paid" || subStatus === "active" || subStatus === "trialing");
+
+    if (isSubscribed) {
+      const customerId =
+        typeof session.customer === "string" ? session.customer : (session.customer?.id ?? null);
+      await supabaseAdmin
+        .from("profiles")
+        .update({
+          subscription_status: "active",
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subId,
+        })
+        .eq("id", context.userId);
+    }
+
+    return { isSubscribed, error: null };
+  });
+
+export const syncCurrentStripeSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const secret = process.env.STRIPE_SECRET_KEY;
+    if (!secret) return { isSubscribed: false, error: "Stripe non configurato" };
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("stripe_customer_id")
+      .eq("id", context.userId)
+      .maybeSingle();
+
+    if (!profile?.stripe_customer_id) {
+      return { isSubscribed: false, error: null };
+    }
+
+    const stripe = new Stripe(secret);
+    const subscriptions = await stripe.subscriptions.list({
+      customer: profile.stripe_customer_id,
+      status: "all",
+      limit: 10,
+    });
+    const activeSub = subscriptions.data.find(
+      (sub) => sub.status === "active" || sub.status === "trialing",
+    );
+
+    if (!activeSub) return { isSubscribed: false, error: null };
+
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        subscription_status: "active",
+        stripe_subscription_id: activeSub.id,
+      })
+      .eq("id", context.userId);
+
+    return { isSubscribed: true, error: null };
   });
