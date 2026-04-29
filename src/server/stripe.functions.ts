@@ -100,3 +100,42 @@ export const syncCheckoutSession = createServerFn({ method: "POST" })
 
     return { isSubscribed, error: null };
   });
+
+export const syncCurrentStripeSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const secret = process.env.STRIPE_SECRET_KEY;
+    if (!secret) return { isSubscribed: false, error: "Stripe non configurato" };
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("stripe_customer_id")
+      .eq("id", context.userId)
+      .maybeSingle();
+
+    if (!profile?.stripe_customer_id) {
+      return { isSubscribed: false, error: null };
+    }
+
+    const stripe = new Stripe(secret);
+    const subscriptions = await stripe.subscriptions.list({
+      customer: profile.stripe_customer_id,
+      status: "all",
+      limit: 10,
+    });
+    const activeSub = subscriptions.data.find(
+      (sub) => sub.status === "active" || sub.status === "trialing"
+    );
+
+    if (!activeSub) return { isSubscribed: false, error: null };
+
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        subscription_status: "active",
+        stripe_subscription_id: activeSub.id,
+      })
+      .eq("id", context.userId);
+
+    return { isSubscribed: true, error: null };
+  });
