@@ -11,7 +11,10 @@ import {
   saveQuoteFn,
   migrateLocalQuotes,
 } from "@/server/quotes.functions";
-import { syncCheckoutSession } from "@/server/stripe.functions";
+import {
+  syncCheckoutSession,
+  syncCurrentStripeSubscription,
+} from "@/server/stripe.functions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth-context";
@@ -75,6 +78,16 @@ function AppPage() {
               if (sync.isSubscribed) break;
               await new Promise((resolve) => setTimeout(resolve, 1200));
             }
+          } finally {
+            setSyncingPayment(false);
+          }
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+
+        if (params.get("upgraded") === "1" && !checkoutSessionId) {
+          setSyncingPayment(true);
+          try {
+            await syncCurrentStripeSubscription();
           } finally {
             setSyncingPayment(false);
           }
