@@ -87,7 +87,16 @@ function AppPage() {
           window.history.replaceState({}, "", window.location.pathname);
         }
 
-        const status = await getQuoteStatus();
+        let status = await getQuoteStatus();
+        if (!status.canGenerate) {
+          setSyncingPayment(true);
+          try {
+            const sync = await syncCurrentStripeSubscription();
+            if (sync.isSubscribed) status = await getQuoteStatus();
+          } finally {
+            setSyncingPayment(false);
+          }
+        }
         setCount(status.count);
         setLimit(status.limit);
         setIsSubscribed(status.isSubscribed);
