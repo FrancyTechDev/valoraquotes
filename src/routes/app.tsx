@@ -11,6 +11,7 @@ import {
   saveQuoteFn,
   migrateLocalQuotes,
 } from "@/server/quotes.functions";
+import { syncCheckoutSession } from "@/server/stripe.functions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth-context";
@@ -44,6 +45,7 @@ function AppPage() {
   const [count, setCount] = useState(0);
   const [limit, setLimit] = useState(3);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [syncingPayment, setSyncingPayment] = useState(false);
 
   // Auth guard
   useEffect(() => {
@@ -63,11 +65,24 @@ function AppPage() {
           });
           localStorage.setItem(migratedKey, "1");
         }
+        const params = new URLSearchParams(window.location.search);
+        const checkoutSessionId = params.get("checkout_session_id");
+        if (params.get("upgraded") === "1" && checkoutSessionId) {
+          setSyncingPayment(true);
+          for (let attempt = 0; attempt < 6; attempt += 1) {
+            const sync = await syncCheckoutSession({ data: { sessionId: checkoutSessionId } });
+            if (sync.isSubscribed) break;
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+          }
+          window.history.replaceState({}, "", window.location.pathname);
+          setSyncingPayment(false);
+        }
+
         const status = await getQuoteStatus();
         setCount(status.count);
         setLimit(status.limit);
         setIsSubscribed(status.isSubscribed);
-        if (!status.canGenerate) setStep("blocked");
+        setStep(status.canGenerate ? "record" : "blocked");
       } catch (e) {
         console.error(e);
       } finally {
@@ -140,10 +155,15 @@ function AppPage() {
 
   const remaining = Math.max(0, limit - count);
 
-  if (authLoading || !user || statusLoading) {
+  if (authLoading || !user || statusLoading || syncingPayment) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-6 text-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        {syncingPayment && (
+          <p className="text-sm text-muted-foreground">
+            Sto attivando il tuo Early Access...
+          </p>
+        )}
       </div>
     );
   }
