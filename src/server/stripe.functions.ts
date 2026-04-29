@@ -18,6 +18,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const stripe = new Stripe(secret);
     const { userId, claims } = context;
     const email = (claims.email as string | undefined) ?? undefined;
+    const origin = data.origin || "https://valoraquotes.lovable.app";
 
     // Reuse customer if exists
     const { data: profile } = await supabaseAdmin
@@ -37,9 +38,24 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         .from("profiles")
         .update({ stripe_customer_id: customerId })
         .eq("id", userId);
+    } else {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 10,
+      });
+      const activeSub = subscriptions.data.find(
+        (sub) => sub.status === "active" || sub.status === "trialing"
+      );
+      if (activeSub) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ subscription_status: "active", stripe_subscription_id: activeSub.id })
+          .eq("id", userId);
+        return { url: `${origin}/app`, error: null };
+      }
     }
 
-    const origin = data.origin || "https://valoraquotes.lovable.app";
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
