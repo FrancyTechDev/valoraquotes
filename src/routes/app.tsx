@@ -192,7 +192,7 @@ function AppPage() {
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <ArrowLeft className="w-4 h-4 text-muted-foreground" />
-              <img src={valoraLogo} alt="Valora" className="h-11 md:h-14 w-auto" />
+              <img src={valoraLogo} alt="Valora" className="h-20 md:h-28 w-auto" />
             </Link>
           </div>
           <div className="flex items-center gap-3">
