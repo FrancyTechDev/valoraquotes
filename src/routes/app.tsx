@@ -69,13 +69,16 @@ function AppPage() {
         const checkoutSessionId = params.get("checkout_session_id");
         if (params.get("upgraded") === "1" && checkoutSessionId) {
           setSyncingPayment(true);
-          for (let attempt = 0; attempt < 6; attempt += 1) {
-            const sync = await syncCheckoutSession({ data: { sessionId: checkoutSessionId } });
-            if (sync.isSubscribed) break;
-            await new Promise((resolve) => setTimeout(resolve, 1200));
+          try {
+            for (let attempt = 0; attempt < 6; attempt += 1) {
+              const sync = await syncCheckoutSession({ data: { sessionId: checkoutSessionId } });
+              if (sync.isSubscribed) break;
+              await new Promise((resolve) => setTimeout(resolve, 1200));
+            }
+          } finally {
+            setSyncingPayment(false);
           }
           window.history.replaceState({}, "", window.location.pathname);
-          setSyncingPayment(false);
         }
 
         const status = await getQuoteStatus();
