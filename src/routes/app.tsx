@@ -6,15 +6,8 @@ import { QuoteDisplay, type QuoteData } from "@/components/QuoteDisplay";
 import { QuoteEditor } from "@/components/QuoteEditor";
 import { Paywall } from "@/components/Paywall";
 import { generateQuote } from "@/server/generate-quote.functions";
-import {
-  getQuoteStatus,
-  saveQuoteFn,
-  migrateLocalQuotes,
-} from "@/server/quotes.functions";
-import {
-  syncCheckoutSession,
-  syncCurrentStripeSubscription,
-} from "@/server/stripe.functions";
+import { getQuoteStatus, saveQuoteFn, migrateLocalQuotes } from "@/server/quotes.functions";
+import { syncCheckoutSession, syncCurrentStripeSubscription } from "@/server/stripe.functions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth-context";
@@ -176,9 +169,7 @@ function AppPage() {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-6 text-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         {syncingPayment && (
-          <p className="text-sm text-muted-foreground">
-            Sto attivando il tuo Early Access...
-          </p>
+          <p className="text-sm text-muted-foreground">Sto attivando il tuo Early Access...</p>
         )}
       </div>
     );

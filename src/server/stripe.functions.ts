@@ -45,7 +45,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         limit: 10,
       });
       const activeSub = subscriptions.data.find(
-        (sub) => sub.status === "active" || sub.status === "trialing"
+        (sub) => sub.status === "active" || sub.status === "trialing",
       );
       if (activeSub) {
         await supabaseAdmin
@@ -95,15 +95,15 @@ export const syncCheckoutSession = createServerFn({ method: "POST" })
     }
 
     const subscription = session.subscription;
-    const subId = typeof subscription === "string" ? subscription : subscription?.id ?? null;
-    const subStatus = typeof subscription === "string" ? null : subscription?.status ?? null;
+    const subId = typeof subscription === "string" ? subscription : (subscription?.id ?? null);
+    const subStatus = typeof subscription === "string" ? null : (subscription?.status ?? null);
     const isSubscribed =
       session.status === "complete" &&
       (session.payment_status === "paid" || subStatus === "active" || subStatus === "trialing");
 
     if (isSubscribed) {
       const customerId =
-        typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
+        typeof session.customer === "string" ? session.customer : (session.customer?.id ?? null);
       await supabaseAdmin
         .from("profiles")
         .update({
@@ -140,7 +140,7 @@ export const syncCurrentStripeSubscription = createServerFn({ method: "POST" })
       limit: 10,
     });
     const activeSub = subscriptions.data.find(
-      (sub) => sub.status === "active" || sub.status === "trialing"
+      (sub) => sub.status === "active" || sub.status === "trialing",
     );
 
     if (!activeSub) return { isSubscribed: false, error: null };
