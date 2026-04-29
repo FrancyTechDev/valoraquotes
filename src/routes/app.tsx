@@ -1,13 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Loader2, ArrowLeft, FolderOpen, Pencil, Check } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Loader2, ArrowLeft, FolderOpen, Pencil, Check, LogOut } from "lucide-react";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { QuoteDisplay, type QuoteData } from "@/components/QuoteDisplay";
 import { QuoteEditor } from "@/components/QuoteEditor";
+import { Paywall } from "@/components/Paywall";
 import { generateQuote } from "@/server/generate-quote.functions";
+import {
+  getQuoteStatus,
+  saveQuoteFn,
+  migrateLocalQuotes,
+} from "@/server/quotes.functions";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { saveQuote } from "@/lib/quote-storage";
+import { useAuth } from "@/lib/auth-context";
+import { getSavedQuotes } from "@/lib/quote-storage";
 import valoraLogo from "@/assets/valora-logo.png";
 
 export const Route = createFileRoute("/app")({
@@ -23,30 +30,52 @@ export const Route = createFileRoute("/app")({
   component: AppPage,
 });
 
-const TRIAL_KEY = "valora_count";
-const MAX_TRIALS = 3;
-
-function getTrialCount(): number {
-  if (typeof window === "undefined") return 0;
-  return parseInt(localStorage.getItem(TRIAL_KEY) || "0", 10);
-}
-
-function incrementTrial() {
-  const count = getTrialCount() + 1;
-  localStorage.setItem(TRIAL_KEY, String(count));
-  return count;
-}
-
 type Step = "record" | "edit" | "generating" | "result" | "editing" | "blocked";
 
 function AppPage() {
-  const [step, setStep] = useState<Step>(() =>
-    getTrialCount() >= MAX_TRIALS ? "blocked" : "record"
-  );
+  const { user, loading: authLoading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [step, setStep] = useState<Step>("record");
   const [transcription, setTranscription] = useState("");
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [count, setCount] = useState(0);
+  const [limit, setLimit] = useState(3);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  // Auth guard
+  useEffect(() => {
+    if (!authLoading && !user) navigate({ to: "/login" });
+  }, [user, authLoading, navigate]);
+
+  // Migrate localStorage quotes once + load status
+  useEffect(() => {
+    if (!user) return;
+    const run = async () => {
+      try {
+        const local = getSavedQuotes();
+        const migratedKey = `valora_migrated_${user.id}`;
+        if (local.length > 0 && !localStorage.getItem(migratedKey)) {
+          await migrateLocalQuotes({
+            data: { quotes: local.map((q) => q.quote) },
+          });
+          localStorage.setItem(migratedKey, "1");
+        }
+        const status = await getQuoteStatus();
+        setCount(status.count);
+        setLimit(status.limit);
+        setIsSubscribed(status.isSubscribed);
+        if (!status.canGenerate) setStep("blocked");
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setStatusLoading(false);
+      }
+    };
+    run();
+  }, [user]);
 
   const handleTranscription = (text: string) => {
     setTranscription(text);
@@ -55,6 +84,10 @@ function AppPage() {
 
   const handleGenerate = async () => {
     if (!transcription.trim()) return;
+    if (!isSubscribed && count >= limit) {
+      setStep("blocked");
+      return;
+    }
     setStep("generating");
     setError("");
 
@@ -69,7 +102,6 @@ function AppPage() {
       }
       if ("quote" in result && result.quote) {
         setQuote(result.quote as QuoteData);
-        incrementTrial();
         setSaved(false);
         setStep("result");
       }
@@ -79,8 +111,12 @@ function AppPage() {
     }
   };
 
-  const handleReset = () => {
-    if (getTrialCount() >= MAX_TRIALS) {
+  const handleReset = async () => {
+    // Refresh status
+    const status = await getQuoteStatus();
+    setCount(status.count);
+    setIsSubscribed(status.isSubscribed);
+    if (!status.canGenerate) {
       setStep("blocked");
     } else {
       setTranscription("");
@@ -91,13 +127,26 @@ function AppPage() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!quote) return;
-    saveQuote(quote);
+    const res = await saveQuoteFn({ data: { quote } });
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
     setSaved(true);
+    setCount((c) => c + 1);
   };
 
-  const remaining = MAX_TRIALS - getTrialCount();
+  const remaining = Math.max(0, limit - count);
+
+  if (authLoading || !user || statusLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -118,23 +167,40 @@ function AppPage() {
               </Button>
             </Link>
             <ThemeToggle />
-            {step !== "blocked" && (
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  {Array.from({ length: MAX_TRIALS }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        i < remaining ? "bg-valora-green" : "bg-border"
-                      }`}
-                    />
-                  ))}
+            {isSubscribed ? (
+              <span className="text-xs font-semibold text-valora-green uppercase tracking-wider px-2 py-1 rounded-md bg-valora-green/10">
+                Early Access
+              </span>
+            ) : (
+              step !== "blocked" && (
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    {Array.from({ length: limit }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          i < remaining ? "bg-valora-green" : "bg-border"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground ml-1">
+                    {remaining}/{limit}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground ml-1">
-                  {remaining}/{MAX_TRIALS}
-                </span>
-              </div>
+              )
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                await signOut();
+                navigate({ to: "/login" });
+              }}
+              title="Esci"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </header>
@@ -254,32 +320,7 @@ function AppPage() {
             />
           )}
 
-          {step === "blocked" && (
-            <div className="text-center space-y-6 py-20">
-              <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mx-auto">
-                <img
-                  src={valoraLogo}
-                  alt="Valora"
-                  className="h-10 w-auto opacity-40"
-                />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                  Trial terminato
-                </h2>
-                <p className="text-muted-foreground text-lg max-w-sm mx-auto">
-                  Hai utilizzato tutti i {MAX_TRIALS} preventivi gratuiti. Effettua
-                  l'upgrade per continuare.
-                </p>
-              </div>
-              <Link to="/saved">
-                <Button variant="outline" className="rounded-xl">
-                  <FolderOpen className="w-4 h-4 mr-2" />
-                  Vedi preventivi salvati
-                </Button>
-              </Link>
-            </div>
-          )}
+          {step === "blocked" && <Paywall count={count} limit={limit} />}
         </div>
       </main>
 

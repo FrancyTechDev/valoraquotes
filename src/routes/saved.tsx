@@ -1,16 +1,16 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, FileText, Trash2, Pencil, Eye } from "lucide-react";
+import { ArrowLeft, FileText, Trash2, Pencil, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { QuoteDisplay } from "@/components/QuoteDisplay";
+import { QuoteDisplay, type QuoteData } from "@/components/QuoteDisplay";
 import { QuoteEditor } from "@/components/QuoteEditor";
 import {
-  getSavedQuotes,
-  deleteSavedQuote,
-  updateSavedQuote,
-  type SavedQuote,
-} from "@/lib/quote-storage";
+  listQuotes,
+  deleteQuoteFn,
+  updateQuoteFn,
+} from "@/server/quotes.functions";
+import { useAuth } from "@/lib/auth-context";
 import valoraLogo from "@/assets/valora-logo.png";
 
 export const Route = createFileRoute("/saved")({
@@ -23,6 +23,12 @@ export const Route = createFileRoute("/saved")({
   component: SavedPage,
 });
 
+interface RemoteQuote {
+  id: string;
+  content: QuoteData;
+  created_at: string;
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("it-IT", {
     day: "2-digit",
@@ -32,21 +38,40 @@ function formatDate(iso: string) {
 }
 
 function SavedPage() {
-  const [quotes, setQuotes] = useState<SavedQuote[]>([]);
-  const [selected, setSelected] = useState<SavedQuote | null>(null);
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [quotes, setQuotes] = useState<RemoteQuote[]>([]);
+  const [selected, setSelected] = useState<RemoteQuote | null>(null);
   const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setQuotes(getSavedQuotes());
-  }, []);
+    if (!authLoading && !user) navigate({ to: "/login" });
+  }, [user, authLoading, navigate]);
 
-  const refresh = () => setQuotes(getSavedQuotes());
+  const refresh = async () => {
+    const res = await listQuotes();
+    setQuotes((res.quotes ?? []) as RemoteQuote[]);
+    setLoading(false);
+  };
 
-  const handleDelete = (id: string) => {
-    deleteSavedQuote(id);
+  useEffect(() => {
+    if (user) refresh();
+  }, [user]);
+
+  const handleDelete = async (id: string) => {
+    await deleteQuoteFn({ data: { id } });
     if (selected?.id === id) setSelected(null);
     refresh();
   };
+
+  if (authLoading || !user || loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -104,15 +129,15 @@ function SavedPage() {
                         }}
                         className="flex-1 text-left min-w-0"
                       >
-                        <h3 className="font-semibold truncate">{q.quote.title}</h3>
+                        <h3 className="font-semibold truncate">{q.content.title}</h3>
                         <p className="text-sm text-muted-foreground truncate mt-0.5">
-                          {q.quote.description}
+                          {q.content.description}
                         </p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                          <span>{formatDate(q.createdAt)}</span>
+                          <span>{formatDate(q.created_at)}</span>
                           <span>·</span>
                           <span className="font-semibold text-valora-green tabular-nums">
-                            € {q.quote.total.toFixed(2)}
+                            € {q.content.total.toFixed(2)}
                           </span>
                         </div>
                       </button>
@@ -157,7 +182,7 @@ function SavedPage() {
                   Modifica
                 </Button>
               </div>
-              <QuoteDisplay quote={selected.quote} />
+              <QuoteDisplay quote={selected.content} />
             </div>
           )}
 
@@ -172,11 +197,13 @@ function SavedPage() {
                 Annulla modifica
               </Button>
               <QuoteEditor
-                quote={selected.quote}
+                quote={selected.content}
                 onCancel={() => setEditing(false)}
-                onSave={(updated) => {
-                  updateSavedQuote(selected.id, updated);
-                  setSelected({ ...selected, quote: updated });
+                onSave={async (updated) => {
+                  await updateQuoteFn({
+                    data: { id: selected.id, quote: updated },
+                  });
+                  setSelected({ ...selected, content: updated });
                   setEditing(false);
                   refresh();
                 }}
